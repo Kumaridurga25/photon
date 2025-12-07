@@ -1,0 +1,33 @@
+body{
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
+
+.status-box{
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+#log{
+    border: 1px solid #ccc;
+    padding: 10px;
+    height: 200px;
+    width: 350px;
+    overflow-y: auto;
+    background: #f7f7f7;
+}
+
+input{
+    padding: 8px;
+    width: 250px;
+}
+
+button{
+    padding: 8px 12px;
+    margin-left: 6px;
+    cursor: pointer;
+}
+
+button:hover{
+    background-color: #eee;
+}
