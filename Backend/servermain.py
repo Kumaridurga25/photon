@@ -4,7 +4,11 @@ import random
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from fastapi.staticfiles import StaticFiles
 import uvicorn
+
+
+
 
 symbols = ["AAPL", "GOOGL", "AMZN", "MSFT"]
 prices = {symbol: 150 + random.uniform(-5, 5) for symbol in symbols}
@@ -56,6 +60,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.mount("/app", StaticFiles(directory="frontend", html=True), name="frontend")
 
 app.add_middleware(
     CORSMiddleware,
