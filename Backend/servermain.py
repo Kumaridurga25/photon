@@ -1,88 +1,96 @@
 import asyncio
 import json
 import random
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 
+STOCKS = ["AAPL", "GOOGL", "AMZN", "MSFT"]
+
+# Initialize prices with a random baseline
+stock_prices = {s: 150 + random.uniform(-5, 5) for s in STOCKS}
+
+# Connected WebSocket clients
+active_clients: set[WebSocket] = set()
+
+# For protecting stock updates during broadcast
+price_lock = asyncio.Lock()
 
 
-symbols = ["AAPL", "GOOGL", "AMZN", "MSFT"]
-prices = {symbol: 150 + random.uniform(-5, 5) for symbol in symbols}
-
-connections = set()
-lock = asyncio.Lock()
-
-
-async def broadcast_prices():
-    """Broadcast stock updates every second."""
+async def stream_updates():
+    """Continuously send stock price updates to all clients."""
     while True:
         await asyncio.sleep(1)
+        price_changes = []
 
-        updates = []
+        # Apply random changes
+        async with price_lock:
+            for symbol in STOCKS:
+                delta = round(random.uniform(-1, 1), 2)
+                stock_prices[symbol] = round(stock_prices[symbol] + delta, 2)
 
-        async with lock:
-            for symbol in symbols:
-                change = round(random.uniform(-1, 1), 2)
-                prices[symbol] = round(prices[symbol] + change, 2)
-
-                updates.append({
+                price_changes.append({
                     "symbol": symbol,
-                    "price": prices[symbol],
-                    "change": change
+                    "price": stock_prices[symbol],
+                    "change": delta
                 })
 
+        # Try broadcasting to all active clients
         disconnected = []
-        for ws in connections:
+        for ws in active_clients:
             try:
-                await ws.send_text(json.dumps(updates))
+                await ws.send_text(json.dumps(price_changes))
             except:
                 disconnected.append(ws)
 
         for ws in disconnected:
-            connections.remove(ws)
+            active_clients.discard(ws)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Handles startup and shutdown."""
-    global broadcast_task
-    broadcast_task = asyncio.create_task(broadcast_prices())
-    print("Broadcasting task started!")
+async def app_lifespan(app: FastAPI):
+    """Startup/shutdown events for async background tasks."""
+    global update_task
+    update_task = asyncio.create_task(stream_updates())
+    print("Started stock updater.")
 
-    yield  # the app runs here
+    yield
 
-    broadcast_task.cancel()
-    print("Broadcasting task stopped!")
+    update_task.cancel()
+    print("Stopped stock updater.")
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=app_lifespan)
+
+# Serve frontend files
 app.mount("/app", StaticFiles(directory="frontend", html=True), name="frontend")
 
+# Allow cross-origin requests (dev only)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=True
 )
 
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    connections.add(websocket)
-    print("Client connected!")
+async def websocket_handler(ws: WebSocket):
+    await ws.accept()
+    active_clients.add(ws)
+    print("Client connected.")
 
     try:
         while True:
-            await websocket.receive_text()  # keep alive
+            await ws.receive_text()  # keep the connection alive
     except WebSocketDisconnect:
-        print("Client disconnected!")
-        connections.discard(websocket)
+        print("Client disconnected.")
+        active_clients.discard(ws)
 
 
 if __name__ == "__main__":
