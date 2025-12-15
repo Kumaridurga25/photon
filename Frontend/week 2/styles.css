@@ -1,0 +1,37 @@
+body{
+    font-family: Arial;
+    padding: 20px;
+}
+
+#status{
+    font-size: 18px;
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+#stocks-container{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.stock-card{
+    width: 300px;
+    padding: 12px;
+    border: 1px solid #999;
+    border-radius: 6px;
+    background: #f8f8f8;
+    font-size: 18px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.green{
+    color: green;
+    font-weight: bold;
+}
+
+.red{
+    color:red;
+    font-weight: bold;
+}
