@@ -14,8 +14,9 @@ STOCKS = ["AAPL", "GOOGL", "AMZN", "MSFT"]
 # Initialize prices with a random baseline
 stock_prices = {s: 150 + random.uniform(-5, 5) for s in STOCKS}
 
-# Connected WebSocket clients
-active_clients: set[WebSocket] = set()
+# Track connected clients and their subscriptions
+client_subscriptions: dict[WebSocket, set[str]] = {}
+
 
 # For protecting stock updates during broadcast
 price_lock = asyncio.Lock()
@@ -41,14 +42,15 @@ async def stream_updates():
 
         # Try broadcasting to all active clients
         disconnected = []
-        for ws in active_clients:
+        for ws in client_subscriptions:
             try:
                 await ws.send_text(json.dumps(price_changes))
             except:
                 disconnected.append(ws)
 
         for ws in disconnected:
-            active_clients.discard(ws)
+            client_subscriptions.pop(ws, None)
+
 
 
 @asynccontextmanager
@@ -82,7 +84,8 @@ app.add_middleware(
 @app.websocket("/ws")
 async def websocket_handler(ws: WebSocket):
     await ws.accept()
-    active_clients.add(ws)
+    client_subscriptions[ws] = set()
+
     print("Client connected.")
 
     try:
@@ -90,7 +93,8 @@ async def websocket_handler(ws: WebSocket):
             await ws.receive_text()  # keep the connection alive
     except WebSocketDisconnect:
         print("Client disconnected.")
-        active_clients.discard(ws)
+        client_subscriptions.pop(ws, None)
+
 
 
 if __name__ == "__main__":
