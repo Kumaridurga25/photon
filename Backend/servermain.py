@@ -10,12 +10,27 @@ import uvicorn
 
 
 STOCKS = ["AAPL", "GOOGL", "AMZN", "MSFT"]
+# symbol -> set of WebSocket subscribers
+subscriptions: dict[str, set[WebSocket]] = {}
+
 
 # Initialize prices with a random baseline
 stock_prices = {s: 150 + random.uniform(-5, 5) for s in STOCKS}
 
 # Track connected clients and their subscriptions
 client_subscriptions: dict[WebSocket, set[str]] = {}
+
+def subscribe(ws: WebSocket, symbol: str):
+    if symbol not in STOCKS:
+        return
+    subscriptions.setdefault(symbol, set()).add(ws)
+    client_subscriptions[ws].add(symbol)
+
+
+def unsubscribe(ws: WebSocket, symbol: str):
+    if symbol in subscriptions:
+        subscriptions[symbol].discard(ws)
+    client_subscriptions[ws].discard(symbol)
 
 
 # For protecting stock updates during broadcast
@@ -35,10 +50,11 @@ async def stream_updates():
                 stock_prices[symbol] = round(stock_prices[symbol] + delta, 2)
 
                 price_changes.append({
-                    "symbol": symbol,
-                    "price": stock_prices[symbol],
-                    "change": delta
-                })
+               "ticker": symbol,       # changed from "symbol" to "ticker"
+               "price": stock_prices[symbol],
+               "change": delta
+               })
+
 
         # Try broadcasting to all active clients
         disconnected = []
@@ -90,7 +106,15 @@ async def websocket_handler(ws: WebSocket):
 
     try:
         while True:
-            await ws.receive_text()  # keep the connection alive
+            data = await ws.receive_text()
+            msg = json.loads(data)
+
+            if msg.get("action") == "subscribe":
+             subscribe(ws, msg.get("symbol"))
+
+            elif msg.get("action") == "unsubscribe":
+              unsubscribe(ws, msg.get("symbol"))
+
     except WebSocketDisconnect:
         print("Client disconnected.")
         client_subscriptions.pop(ws, None)
