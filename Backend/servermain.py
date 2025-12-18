@@ -33,6 +33,15 @@ def unsubscribe(ws: WebSocket, symbol: str):
     client_subscriptions[ws].discard(symbol)
 
 
+def cleanup(ws: WebSocket):
+    # Remove client from all subscribed stock rooms
+    for symbol in client_subscriptions.get(ws, set()):
+        subscriptions[symbol].discard(ws)
+    # Remove client from client tracking
+    client_subscriptions.pop(ws, None)
+
+
+
 # For protecting stock updates during broadcast
 price_lock = asyncio.Lock()
 
@@ -56,17 +65,17 @@ async def stream_updates():
                })
 
 
-        # Try broadcasting to all active clients
-        disconnected = []
-        for ws in client_subscriptions:
-            try:
-                await ws.send_text(json.dumps(price_changes))
-            except:
-                disconnected.append(ws)
+                for symbol in STOCKS:
+                   message = json.dumps({
+                   "ticker": symbol,
+                   "price": stock_prices[symbol]
+                    })
 
-        for ws in disconnected:
-            client_subscriptions.pop(ws, None)
-
+    for ws in subscriptions.get(symbol, set()).copy():
+        try:
+            await ws.send_text(message)
+        except:
+            cleanup(ws)
 
 
 @asynccontextmanager
@@ -116,8 +125,9 @@ async def websocket_handler(ws: WebSocket):
               unsubscribe(ws, msg.get("symbol"))
 
     except WebSocketDisconnect:
-        print("Client disconnected.")
-        client_subscriptions.pop(ws, None)
+      print("Client disconnected.")
+      cleanup(ws)
+
 
 
 
