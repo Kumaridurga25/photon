@@ -10,72 +10,91 @@ import uvicorn
 
 
 STOCKS = ["AAPL", "GOOGL", "AMZN", "MSFT"]
-# symbol -> set of WebSocket subscribers
-subscriptions: dict[str, set[WebSocket]] = {}
+
+MAX_SUBSCRIPTIONS = 5
+
+# symbol -> set of client_ids
+subscriptions: dict[str, set[int]] = {}
+
+# client_id -> set of symbols
+client_subscriptions: dict[int, set[str]] = {}
+
+# client_id -> WebSocket
+clients: dict[int, WebSocket] = {}
 
 
 # Initialize prices with a random baseline
 stock_prices = {s: 150 + random.uniform(-5, 5) for s in STOCKS}
 
-# Track connected clients and their subscriptions
-client_subscriptions: dict[WebSocket, set[str]] = {}
 
 def subscribe(ws: WebSocket, symbol: str):
+    client_id = id(ws)
     if symbol not in STOCKS:
         return
-    subscriptions.setdefault(symbol, set()).add(ws)
-    client_subscriptions[ws].add(symbol)
+    if symbol in client_subscriptions[client_id]:
+        return
+    if len(client_subscriptions[client_id]) >= MAX_SUBSCRIPTIONS:
+        return
+    subscriptions.setdefault(symbol, set()).add(client_id)
+    client_subscriptions[client_id].add(symbol)
+    print(f"{ws.client} subscribed to {symbol}")
+
+
+
 
 
 def unsubscribe(ws: WebSocket, symbol: str):
     if symbol in subscriptions:
         subscriptions[symbol].discard(ws)
-    client_subscriptions[ws].discard(symbol)
+
+    client_subscriptions.get(ws, set()).discard(symbol)
+
 
 
 def cleanup(ws: WebSocket):
-    # Remove client from all subscribed stock rooms
-    for symbol in client_subscriptions.get(ws, set()):
-        subscriptions[symbol].discard(ws)
-    # Remove client from client tracking
-    client_subscriptions.pop(ws, None)
+    client_id = id(ws)
+    for symbol in client_subscriptions.get(client_id, set()):
+        subscriptions[symbol].discard(client_id)
+    client_subscriptions.pop(client_id, None)
+    clients.pop(client_id, None)
 
 
 
-# For protecting stock updates during broadcast
+
+# For protecting stock updates during broadcast 
 price_lock = asyncio.Lock()
 
 
 async def stream_updates():
-    """Continuously send stock price updates to all clients."""
+    """Continuously send stock price updates to subscribed clients."""
     while True:
         await asyncio.sleep(1)
-        price_changes = []
 
-        # Apply random changes
         async with price_lock:
             for symbol in STOCKS:
+                # Apply random delta
                 delta = round(random.uniform(-1, 1), 2)
                 stock_prices[symbol] = round(stock_prices[symbol] + delta, 2)
 
-                price_changes.append({
-               "ticker": symbol,       # changed from "symbol" to "ticker"
-               "price": stock_prices[symbol],
-               "change": delta
-               })
+                # Build the update message
+                message = json.dumps({
+                    "ticker": symbol,
+                    "price": stock_prices[symbol],
+                    "change": delta
+                })
+
+                # Send message only to subscribed clients
+                for client_id in subscriptions.get(symbol, set()).copy():
+                    ws = clients.get(client_id)
+                    if ws is None:
+                        continue
+                    try:
+                        await ws.send_text(message)
+                    except:
+                        cleanup(ws)
 
 
-                for symbol in STOCKS:
-                   message = json.dumps({
-                   "ticker": symbol,
-                   "price": stock_prices[symbol]
-                    })
 
-    for ws in subscriptions.get(symbol, set()).copy():
-        try:
-            await ws.send_text(message)
-        except:
-            cleanup(ws)
 
 
 @asynccontextmanager
@@ -109,9 +128,11 @@ app.add_middleware(
 @app.websocket("/ws")
 async def websocket_handler(ws: WebSocket):
     await ws.accept()
-    client_subscriptions[ws] = set()
-
+    client_id = id(ws)
+    clients[client_id] = ws
+    client_subscriptions[client_id] = set()
     print("Client connected.")
+
 
     try:
         while True:
