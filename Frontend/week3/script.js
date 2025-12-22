@@ -8,6 +8,14 @@ const socket = new WebSocket(WS_URL)
 
 socket.onopen=()=>{
     statusEl.textContent = "Connected";
+
+    const symbols = ["AAPL", "GOOGL", "AMZN", "MSFT"];
+    symbols.forEach(symbol=>{
+        socket.send(JSON.stringify({
+            action:"subscribe",
+            symbol:symbol
+        }));
+    });
 }
 
 socket.onclose=()=>{
@@ -49,9 +57,11 @@ function updateStock(ticker, price){
     const priceEl=card.querySelector(".stock-price");
 
     if (previousPrices[ticker] !== undefined){
-        if (price > previousPrices[ticker]){
+        const prev = Number(previousPrices[ticker]);
+
+        if (price > prev){
             priceEl.className="stock-price up";
-        }else if (price < previousPrices[ticker]){
+        }else if (price < prev){
             priceEl.className="stock-price down";
         }
     }
