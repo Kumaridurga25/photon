@@ -44,10 +44,10 @@ def subscribe(ws: WebSocket, symbol: str):
 
 
 def unsubscribe(ws: WebSocket, symbol: str):
-    if symbol in subscriptions:
-        subscriptions[symbol].discard(ws)
+    client_id = id(ws)
+    subscriptions.get(symbol, set()).discard(client_id)
+    client_subscriptions.get(client_id, set()).discard(symbol)
 
-    client_subscriptions.get(ws, set()).discard(symbol)
 
 
 
@@ -113,7 +113,7 @@ async def app_lifespan(app: FastAPI):
 app = FastAPI(lifespan=app_lifespan)
 
 # Serve frontend files
-app.mount("/app", StaticFiles(directory="frontend", html=True), name="frontend")
+app.mount("/app", StaticFiles(directory="frontend/week3", html=True), name="frontend")
 
 # Allow cross-origin requests (dev only)
 app.add_middleware(
@@ -153,4 +153,5 @@ async def websocket_handler(ws: WebSocket):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+   uvicorn.run(app, host="0.0.0.0", port=8000)
+ 
