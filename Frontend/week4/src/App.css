@@ -1,0 +1,70 @@
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  background: #f5f7fb;
+}
+
+.app {
+  max-width: 900px;
+  margin: auto;
+  padding: 30px;
+}
+
+h1 {
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+
+.status {
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
+.status.connected {
+  color: green;
+}
+
+.status.disconnected,
+.status.error {
+  color: red;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.stock-card {
+  background: white;
+  padding: 18px;
+  border-radius: 12px;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+  transition: transform 0.2s;
+}
+
+.stock-card:hover {
+  transform: translateY(-4px);
+}
+
+.price {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.price.up {
+  color: green;
+}
+
+.price.down {
+  color: red;
+}
+
+.change {
+  font-size: 14px;
+  margin-left: 6px;
+}
+
+.arrow {
+  margin-left: 4px;
+}
