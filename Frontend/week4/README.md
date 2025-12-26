@@ -1,16 +1,97 @@
-# React + Vite
+# Photon – Week 4: Live Stock Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This week focuses on building a **real-time stock price dashboard** using **React + WebSockets**.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+- Real-time stock updates using WebSocket
+- Supports multiple stocks:
+  - AAPL
+  - GOOGL
+  - AMZN
+  - MSFT
+- Price movement indicators:
+  - ↑ Green for price increase
+  - ↓ Red for price decrease
+- Auto-reconnect on WebSocket disconnect
+- Clean component-based architecture
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+##  Tech Stack
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- React (Vite)
+- WebSocket API
+- JavaScript (ES6+)
+- CSS
+
+---
+
+## Folder Structure
+
+#  Photon – Week 4: Live Stock Dashboard
+
+This week focuses on building a **real-time stock price dashboard** using **React + WebSockets**.
+
+---
+
+## Features
+
+- Real-time stock updates using WebSocket
+- Supports multiple stocks:
+  - AAPL
+  - GOOGL
+  - AMZN
+  - MSFT
+- Price movement indicators:
+  - ↑ Green for price increase
+  - ↓ Red for price decrease
+- Auto-reconnect on WebSocket disconnect
+- Clean component-based architecture
+
+---
+
+## Tech Stack
+
+- React (Vite)
+- WebSocket API
+- JavaScript (ES6+)
+- CSS
+
+---
+
+## Folder Structure
+
+week4/
+├── src/
+│ ├── components/
+│ │ └── StockCard.jsx
+│ ├── App.jsx
+│ ├── main.jsx
+│ ├── index.css
+│ └── App.css
+├── public/
+├── index.html
+├── package.json
+└── vite.config.js
+
+
+---
+
+## WebSocket Flow
+
+1. Frontend connects to backend WebSocket
+2. Subscribes to stock symbols
+3. Receives live price updates
+4. UI updates with trend indicators
+
+---
+
+## Run Locally
+
+```bash
+cd Frontend/week4
+npm install
+npm run dev
