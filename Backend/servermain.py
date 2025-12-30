@@ -75,6 +75,8 @@ async def stream_updates():
                     price = await fetch_live_price(symbol)
                     if price is None:
                         continue
+
+                 
                     delta = round(price - old_price, 2)
                     mode = "live"
 
@@ -133,7 +135,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/app", StaticFiles(directory="frontend/week3", html=True), name="frontend")
+app.mount("/app", StaticFiles(directory="frontend/week4", html=True), name="frontend")
 
 @app.websocket("/ws")
 async def ws_handler(ws: WebSocket):
