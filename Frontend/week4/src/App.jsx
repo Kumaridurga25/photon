@@ -9,13 +9,25 @@ export default function App() {
   const [status, setStatus] = useState("Connecting...");
   const [stocks, setStocks] = useState({});
   const socketRef = useRef(null);
+  const isManuallyClosed = useRef(false);
+
 
   useEffect(() => {
+    if(socketRef.current) return;
+
     connectSocket();
-    return () => socketRef.current?.close();
+
+    return () =>{
+      isManuallyClosed.current=true;
+
+      socketRef.current?.close();
+      socketRef.current=null;
+    };
   }, []);
 
   const connectSocket = () => {
+    isManuallyClosed.current=false;
+
     const socket = new WebSocket(WS_URL);
     socketRef.current = socket;
 
@@ -43,6 +55,9 @@ export default function App() {
     };
 
     socket.onclose = () => {
+
+      if(isManuallyClosed.current) return;
+
       console.log("Disconnected. Reconnecting...");
       setStatus("Disconnected. Reconnecting...");
 
