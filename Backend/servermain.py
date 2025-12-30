@@ -10,6 +10,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import uvicorn
+import logging
 
 # =====================
 # ENV
@@ -23,14 +24,20 @@ FINNHUB_URL = "https://finnhub.io/api/v1/quote"
 print("DEMO_MODE =", DEMO_MODE)
 print("FINNHUB_API_KEY =", "SET" if FINNHUB_API_KEY else "MISSING")
 
+# ====================
+# LOGGING
+# =====================
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # =====================
 # GLOBALS
 # =====================
 STOCKS = ["AAPL", "GOOGL", "AMZN", "MSFT"]
-
 subscriptions = {}          # symbol -> client_ids
 client_subscriptions = {}   # client_id -> symbols
 clients = {}                # client_id -> websocket
+
 
 stock_prices = {s: 150 + random.uniform(-5, 5) for s in STOCKS}
 price_lock = asyncio.Lock()
@@ -54,8 +61,30 @@ async def fetch_live_price(symbol):
         return round(float(data["c"]), 2)
 
     except Exception as e:
-        print(f"Finnhub error for {symbol}: {e}")
+        logger.warning(f"Finnhub error for {symbol}: {e}")
         return None
+    
+
+# =====================
+# DEMO AND LIVE PRICE FUNCTIONS
+# =====================
+async def update_demo_price(symbol):
+    """Generate demo price for a stock symbol."""
+    old_price = stock_prices[symbol]
+    price, delta = generate_demo_price(old_price)
+    stock_prices[symbol] = price
+    return price, delta, "demo"
+
+
+async def update_live_price(symbol):
+    """Fetch live price for a stock symbol."""
+    old_price = stock_prices[symbol]
+    price = await fetch_live_price(symbol)
+    if price is None:
+        return None  # Skip if API fails
+    delta = round(price - old_price, 2)
+    stock_prices[symbol] = price
+    return price, delta, "live"    
 
 # =====================
 # STREAM UPDATES
@@ -66,21 +95,17 @@ async def stream_updates():
 
         async with price_lock:
             for symbol in STOCKS:
-                old_price = stock_prices[symbol]
-
+                 # Get price depending on mode
                 if DEMO_MODE:
-                    price, delta = generate_demo_price(old_price)
-                    mode = "demo"
+                    result = await update_demo_price(symbol)
                 else:
-                    price = await fetch_live_price(symbol)
-                    if price is None:
-                        continue
+                    result = await update_live_price(symbol)
 
-                 
-                    delta = round(price - old_price, 2)
-                    mode = "live"
+                if result is None:
+                    continue  # Skip if live API fails
 
-                stock_prices[symbol] = price
+                price, delta, mode = result
+
 
                 message = json.dumps({
                     "ticker": symbol,
@@ -94,19 +119,22 @@ async def stream_updates():
                     if ws:
                         try:
                             await ws.send_text(message)
-                        except:
+                        except (RuntimeError, WebSocketDisconnect):
                             cleanup(ws)
 
-                print(f"{symbol}: {price} ({mode})")
+                        except Exception as e:
+                            logger.warning(f"Error sending to client {client_id}: {e}")
+
+                logger.info(f"{symbol}: {price} ({mode})")
 
 # =====================
-# SUBSCRIPTIONS
+# SUBSCRIPTIONS & CLEANUP
 # =====================
 def subscribe(ws, symbol):
     cid = id(ws)
     subscriptions.setdefault(symbol, set()).add(cid)
     client_subscriptions[cid].add(symbol)
-    print(f"{ws.client} subscribed to {symbol}")
+    logger.info(f"{ws.client} subscribed to {symbol}")
 
 def cleanup(ws):
     cid = id(ws)
@@ -114,6 +142,7 @@ def cleanup(ws):
         subscriptions[symbol].discard(cid)
     client_subscriptions.pop(cid, None)
     clients.pop(cid, None)
+    logger.info(f"Cleaned up client {cid}")
 
 # =====================
 # FASTAPI
@@ -121,10 +150,10 @@ def cleanup(ws):
 @asynccontextmanager
 async def lifespan(app):
     task = asyncio.create_task(stream_updates())
-    print("Started stock updater.")
+    logger.info("Started stock updater.")
     yield
     task.cancel()
-    print("Stopped stock updater.")
+    logger.info("Stopped stock updater.")
 
 app = FastAPI(lifespan=lifespan)
 
@@ -143,16 +172,24 @@ async def ws_handler(ws: WebSocket):
     cid = id(ws)
     clients[cid] = ws
     client_subscriptions[cid] = set()
-    print("Client connected")
+    logger.info("Client connected")
+
 
     try:
         while True:
-            msg = json.loads(await ws.receive_text())
-            if msg["action"] == "subscribe":
-                subscribe(ws, msg["symbol"])
+            try:
+               msg = json.loads(await ws.receive_text())
+               action = msg.get("action")
+               symbol = msg.get("symbol")
+               if action == "subscribe" and symbol in STOCKS:
+                subscribe(ws, symbol)
+            except json.JSONDecodeError:
+                await ws.send_text(json.dumps({"error": "Invalid JSON"}))
+            except KeyError:
+                await ws.send_text(json.dumps({"error": "Missing keys"}))
     except WebSocketDisconnect:
         cleanup(ws)
-        print("Client disconnected")
+        logger.info("Client disconnected")
 
 # =====================
 # RUN
