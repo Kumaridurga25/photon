@@ -29,6 +29,7 @@ print("FINNHUB_API_KEY =", "SET" if FINNHUB_API_KEY else "MISSING")
 # =====================
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # =====================
 # GLOBALS
