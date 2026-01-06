@@ -121,3 +121,22 @@ body.light .stock-card {
   cursor: pointer;
 }
 
+.stock-card .price {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: white;
+}
+
+.stock-card .price.up {
+  color: #22c55e;
+}
+
+.stock-card .price.down {
+  color: #ef4444;
+}
+
+.stock-card .price.flat {
+  color: #e5e7eb;
+}
+
+
