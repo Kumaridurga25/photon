@@ -33,26 +33,26 @@ export default function App() {
     };
 
     ws.onmessage = (e) => {
-  const data = JSON.parse(e.data);
-  if (!data.ticker) return;
+     const data = JSON.parse(e.data);
+      if (!data.ticker) return;
 
-  const price = Number(data.price);
-  const change = Number(data.change);
+      const price = Number(data.price);
+     const change = Number(data.change);
 
-  let trend = "flat";
-  if (change > 0) trend = "up";
-  else if (change < 0) trend = "down";
+      let trend = "flat";
+      if (change > 0) trend = "up";
+      else if (change < 0) trend = "down";
 
-  setStocks(prev => ({
-    ...prev,
-    [data.ticker]: {
-      price,
-      change,
-      trend,
-      mode: data.mode
-    }
-  }));
-};
+     setStocks(prev => ({
+        ...prev,
+       [data.ticker]: {
+          price,
+         change,
+         trend,
+         mode: data.mode
+       }
+      }));
+    };
 
     ws.onclose = () => {
       if (manualClose.current) return;
